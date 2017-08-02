@@ -71,6 +71,8 @@ void ATParser_init( ATParser_t * parser, uint8_t * marker, uint8_t markerLen, AT
 /**
  * Parses given command line w.r.t. defined commands.
  *
+ * @TODO introduce case insensitivity for commands 
+ *
  * NOTE: parses only one and only the first command found, ergo it is your responsibility to feed it only one command at a time
  *
  * REALLY IMPORTANT NOTE: for get/set commands with arguments the original buffer is modified such as to put null-characters after each argument

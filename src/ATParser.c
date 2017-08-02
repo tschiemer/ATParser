@@ -42,6 +42,7 @@ ATParserResult_t ATParser_parseString( ATParser_t * parser, uint8_t * input, uin
     uint16_t start = 0;
     uint16_t end = inputLen - 1;
     uint16_t len = inputLen;
+    uint16_t cmdEnd;
 
     // determine actual command start
     for (bool found = false; !found && parser->MarkerLen < len;)
@@ -60,6 +61,7 @@ ATParserResult_t ATParser_parseString( ATParser_t * parser, uint8_t * input, uin
     // if the length is shorter than the marker, there was no marker found
     if (len < parser->MarkerLen)
     {
+		// PRINTF("too short\n");
     	return ATParserResultError;
     }
 
@@ -91,33 +93,56 @@ ATParserResult_t ATParser_parseString( ATParser_t * parser, uint8_t * input, uin
     	{
     		return parser->MarkerOnlyCallback();
     	}
+		// PRINTF("marker only but no handler\n");
     	return ATParserResultError;
     }
-    
+
+    // determine +COMMAND length
+
+    cmdEnd = parser->MarkerLen;
+    for (bool found = false; !found && cmdEnd <= end; )
+    {
+    	switch (input[cmdEnd])
+    	{
+    		case '\0':
+    		case '\n':
+    		case '\r':
+    		case '?':
+    		case '=':
+    			found = true;
+    			break;
+    		default:
+    			cmdEnd++;
+    			break;
+    	}
+    }
+
     // try to find a matching command
     uint8_t * parseStart = &input[start + parser->MarkerLen];
     ATParserCommand_t * command = NULL;
-    for (uint8_t i = 0; i < parser->CommandCount; i++)
+    for (uint8_t i = 0; i < parser->CommandCount && command == NULL; i++)
     {
     	// if the remaining length is shorter than the command, it just can't be that one
-    	if (len < parser->Commands[i].Length)
+    	if (cmdEnd - start != parser->MarkerLen + parser->Commands[i].Length)
     	{
     		continue;
     	}
     	// if the string does not match, it just can't be it.
     	if (memcmp( parseStart, parser->Commands[i].String, parser->Commands[i].Length ) == 0)
     	{
-    		command = &parser->Commands[i];
+    		command = &(parser->Commands[i]);
     	}
     }
 
     // if not found, return error
     if ( command == NULL )
     {
+    	// PRINTF("no command found\n");
     	return ATParserResultError;
     }
 
     uint8_t argStart = start + parser->MarkerLen + command->Length;
+//    PRINTF("start = %d, argStart = %d, end = %d,  mrklen = %d, cmdlen = %d\n", start, argStart, end, parser->MarkerLen, command->Length);
     ATParserCommandType_t commandType = ATParserCommandTypeInvalid;
     if ( argStart == end + 1 )
     {
@@ -153,6 +178,7 @@ ATParserResult_t ATParser_parseString( ATParser_t * parser, uint8_t * input, uin
     // so we didn't find a valid command
     if ( commandType == ATParserCommandTypeInvalid )
     {
+    	// PRINTF("didn't detect a command type\n");
     	return ATParserResultError;
     }
 
@@ -177,6 +203,7 @@ ATParserResult_t ATParser_parseString( ATParser_t * parser, uint8_t * input, uin
 
     	if (argc == AT_PARSER_ARGUMENTS_MAX_COUNT)
     	{
+    		// PRINTF("max argc\n");
     		return ATParserResultError;
     	}
     }
@@ -195,7 +222,7 @@ ATParserResult_t ATParser_parseString( ATParser_t * parser, uint8_t * input, uin
     		return command->Test();
 
     	default: // this should never be reached
-        	//PRINTF("should not occur\n");
+        	// PRINTF("should not occur\n");
     		return ATParserResultError;
     }
 
